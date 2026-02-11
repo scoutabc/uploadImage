@@ -4,9 +4,14 @@ import fs from "fs"
 import path from 'path';
 
 export async function getImages(){
-    return await prisma.images.findMany({
-        orderBy: { id: "asc" },
-    });
+    try {
+        return await prisma.images.findMany({
+            orderBy: { id: "asc" },
+        });
+    } catch (err) {
+        console.error("Get Images Error:", err);
+        throw err;
+    }
 }
 
 export async function uploadImage(formData: FormData):Promise<void | { error?:string }> {

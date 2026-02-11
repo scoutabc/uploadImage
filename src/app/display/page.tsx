@@ -14,9 +14,14 @@ export default function DisplayImage(){
     const [deleted,setDeleted] = useState(0);
     useEffect(()=>{
         async function load(){
-            const res = await fetch("/api/images");
-            const data = await res.json();
-            setImages(data);
+            try {
+                const res = await fetch("/api/images");
+                const data = await res.json();
+                setImages(data);
+            } catch (err) {
+                console.error("Failed to load images:", err);
+                alert("Failed to load images");
+            }
         }
         load();
     },[deleted]);
