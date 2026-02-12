@@ -111,3 +111,12 @@ prisma studio       # GUI to inspect/edit database
 
 # Error Handling Instructions
 Please ensure that all potentially error-prone code uses try/catch blocks for error handling. If not, please add try/catch blocks for me.
+
+# Form Actions Instructions
+If you find some forms in tsx have no actions, please add actions for them. The actions should be in the `src/app/actions/` directory and should hanle the form submission logic, including any necessary validation and database interactions. Make sure to follow the existing patterns for Server Actions in Next.js, using the `"use server"` directive and returning appropriate error messages if validation fails.
+
+# File System Cleanup Instructions
+If there is an image has been deleted, please make sure that the image has been also deleted from the file system. You can use the `fs` module to check if the file exists and delete it if necessary. This will help prevent orphaned files from taking up space on the server.
+
+# Image Validation Instructions
+Please check every image that the users upload, if it's unsafe for the server, please prevent the upload and return an appropriate error message. You can use libraries like `file-type` to validate the file type and ensure it matches the expected image formats.

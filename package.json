@@ -17,6 +17,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "esbuild": "^0.17.19",
+    "file-type": "^21.3.0",
     "lucide-react": "^0.556.0",
     "next": "^16.1.5",
     "postcss": "^8.5.6",

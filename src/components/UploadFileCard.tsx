@@ -35,14 +35,19 @@ export default function UploadFileCard({ className }:{className:string}) {
             <CardContent>
                 <form id="UploadForm"
                       action={async function(formData){
-                        console.log("UPLOAD CALLED");
-                        const result = await uploadImageAction(formData);
-                        if (result?.error) {
-                            alert(result.error)
-                            return;
+                        try {
+                            console.log("UPLOAD CALLED");
+                            const result = await uploadImageAction(formData);
+                            if (result?.error) {
+                                alert(result.error)
+                                return;
+                            }
+                            console.log("Successful!")
+                            setPreview(null);
+                        } catch (err) {
+                            console.error("Upload form action failed:", err);
+                            alert("Upload failed");
                         }
-                        console.log("Successful!")
-                        setPreview(null);
                     }}
                 >
                     <Label htmlFor="title" className="my-3">Title</Label>

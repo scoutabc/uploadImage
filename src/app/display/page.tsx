@@ -49,13 +49,18 @@ export default function DisplayImage(){
                         {isManaging && 
                         <Button variant="secondary"
                             onClick={async function(){
-                                const result = await deleteImageAction(img.id);
-                                if (result?.error) {
-                                    alert(result.error)
-                                    return;
+                                try {
+                                    const result = await deleteImageAction(img.id);
+                                    if (result?.error) {
+                                        alert(result.error)
+                                        return;
+                                    }
+                                    console.log("Delete Successful!")
+                                    setDeleted(deleted + 1);
+                                } catch (err) {
+                                    console.error("Delete failed:", err);
+                                    alert("Delete failed");
                                 }
-                                console.log("Delete Successful!")
-                                setDeleted(deleted + 1);
                             }}
                             className="absolute top-2 right-2">
                             <Trash />

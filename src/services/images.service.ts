@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { writeFile,mkdir,unlink } from 'fs/promises';
 import fs from "fs"
 import path from 'path';
+import { fileTypeFromBuffer } from 'file-type';
 
 export async function getImages(){
     try {
@@ -39,8 +40,15 @@ export async function uploadImage(formData: FormData):Promise<void | { error?:st
         }
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        const ext = file.name.split(".").pop() || "jpg";
-        const filename = `${Date.now()}-${crypto.randomUUID()}.${ext}`
+
+        const detectedType = await fileTypeFromBuffer(buffer);
+        const allowedMimes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+        if (!detectedType || !allowedMimes.has(detectedType.mime)) {
+            console.error("Upload Error:", "Unsafe or unsupported image type");
+            return { error: "Unsafe or unsupported image type" };
+        }
+
+        const filename = `${Date.now()}-${crypto.randomUUID()}.${detectedType.ext}`
         const uploadDir = path.join(process.cwd(), "public/uploads");
 
         if (!fs.existsSync(uploadDir)) {
@@ -56,13 +64,15 @@ export async function uploadImage(formData: FormData):Promise<void | { error?:st
                 data:{
                     title,
                     filename,
-                    mimeType:file.type,
+                    mimeType: detectedType.mime,
                     size:file.size
                 }
             })
         } catch(err) {
-            if (path.join(uploadDir,filename)){
-                await unlink(path.join(uploadDir,filename));
+            try {
+                await unlink(path.join(uploadDir, filename));
+            } catch {
+                // ignore cleanup failures
             }
             return { error:`${err}` };
         }
@@ -80,16 +90,24 @@ export async function deleteImage(id:number) {
             console.error("Delete Error:","The data isn't existing");
             return { error:"Delete Error: The data isn't existing." };
         }
-        if (!fs.existsSync(path.join(basicDir,image.filename))){
-            console.error("Delete Error:","The file isn't existing.")
-            return { error:"Delete Error: The file isn't existing." };
-        }
+        const filePath = path.join(basicDir, image.filename);
+        const fileExists = fs.existsSync(filePath);
+
         await prisma.images.delete({
             where:{
                 id:id,
             },
         });
-        await unlink(path.join(basicDir,image.filename));
+
+        if (fileExists) {
+            try {
+                await unlink(filePath);
+            } catch (err) {
+                console.error("Delete Error: failed to delete file", err);
+            }
+        } else {
+            console.warn("Delete Warning: file missing, DB record removed");
+        }
     } catch(err) {
         console.error(err);
         return { error:`${err}` }
