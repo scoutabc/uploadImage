@@ -23,7 +23,14 @@ export async function uploadImage(formData: FormData):Promise<void | { error?:st
         console.log("UPLOAD CALLED");
         console.log("TITLE:", title);
         console.log("FILE:", file);
-
+        if(title.length > 255) {
+            console.error("Upload Error:","Title is too long!");
+            return { error:"Title is too long!" }
+        }
+        if (title.trim() === "") {
+            console.error("Upload Error:","Title cannot be empty!");
+            return { error:"Title cannot be empty!" }
+        }
         if (!title || !file || file.size === 0) {
             console.error("Upload Error:","Missing title or image file!")
             return { error:"Missing title or image file!" }
@@ -111,5 +118,42 @@ export async function deleteImage(id:number) {
     } catch(err) {
         console.error(err);
         return { error:`${err}` }
+    }
+}
+
+export async function updateImageTitle(id:number, newTitle:string) {
+    try {
+        const count = await prisma.images.count({
+            where: {
+                title: newTitle
+            }
+        });
+        if (count > 0) {
+            console.error("Update Error: Title already exists");
+            return { error: "Update Error: Title already exists" };
+        }
+        if (newTitle.trim() === "") {
+            console.error("Update Error: Title cannot be empty");
+            return { error: "Update Error: Title cannot be empty" };
+        }
+        if (newTitle.length > 255) {
+            console.error("Update Error: Title is too long");
+            return { error: "Update Error: Title is too long" };
+        }
+        if (newTitle === (await prisma.images.findUnique({ where: { id } }))?.title) {
+            console.error("Update Error: New title is the same as the current title");
+            return { error: "Update Error: New title is the same as the current title" };
+        }
+        await prisma.images.update({
+            where:{
+                id: id
+            },
+            data:{
+                title:newTitle
+            }
+        });
+    }catch(err) {
+        console.error(err);
+        return { error:`Update Error:${err}` }
     }
 }

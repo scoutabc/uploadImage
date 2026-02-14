@@ -79,13 +79,21 @@ export default function UploadFileCard({ className }:{className:string}) {
                             <span className="py-5">Click to upload</span>
                         </div>
                     </Label>
-                    {preview && <div className="flex flex-row">
-                            <a href={preview}>
-                                <Image src={preview} alt="Preview" className="rounded-l-2xl" height={320} width={220}/>
+                    {preview && <div className="flex flex-row items-stretch">
+                            <a href={preview} className="block h-90 w-full">
+                                <Image
+                                    src={preview}
+                                    alt="Preview"
+                                    className="h-full w-full rounded-l-2xl object-cover"
+                                    height={360}
+                                    width={260}
+                                    unoptimized
+                                />
                             </a>
                             <Button 
+                                type="button"
                                 variant="secondary"
-                                className="h-80 w-35 flex flex-col gap-4 rounded-l-none rounded-r-2xl"
+                                className="h-90 w-36 flex flex-col gap-4 rounded-l-none rounded-r-2xl"
                                 onClick={()=>{
                                     if (fileRef.current) {
                                         fileRef.current.value = ""

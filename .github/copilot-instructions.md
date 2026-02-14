@@ -36,7 +36,7 @@ Client (React Components)
 
 ### Data Retrieval
 - API endpoint `GET /api/images/` returns all images from DB via `getImages()` service
-- Display page (`src/app/display/page.tsx`) likely fetches and renders images
+- Display page (`src/app/display/page.tsx`) fetches images, supports delete mode, and inline title edit per-image via pencil/save/cancel flow
 
 ## Development Commands
 
@@ -65,7 +65,7 @@ prisma studio       # GUI to inspect/edit database
 | Path | Purpose |
 |------|---------|
 | `src/services/images.service.ts` | Core business logic: upload validation, file I/O, DB operations |
-| `src/app/actions/` | Server Actions (uploadImage.ts, deleteImage.ts) - thin wrappers around service |
+| `src/app/actions/` | Server Actions (uploadImage.ts, deleteImage.ts, updateImageTitle.ts) - thin wrappers around service |
 | `src/components/UploadFileCard.tsx` | Main upload UI with preview; manages form submission |
 | `src/app/api/images/route.ts` | GET endpoint for retrieving all images |
 | `src/lib/prisma.ts` | Prisma client singleton |
@@ -96,7 +96,8 @@ prisma studio       # GUI to inspect/edit database
 
 - **Server Actions body limit**: 5MB (configured in next.config.ts)
 - **React Strict Mode**: Disabled (reactStrictMode: false) - prevent double mounts in dev
-- **Image MIME type validation**: Checked with `file.type.startsWith('image/')`
+- **Image MIME type validation**: Checked by file signature using `file-type` (`fileTypeFromBuffer`) and allowlist: jpeg/png/webp/gif
+- **Title validation**: Upload/update reject empty titles and titles longer than 255 chars
 - **Database URL**: Set via `DATABASE_URL` environment variable (default: local SQLite)
 
 ## Common Tasks
@@ -109,6 +110,8 @@ prisma studio       # GUI to inspect/edit database
 
 **Check file upload errors**: Service logs to console - check `npm run dev` terminal for "UPLOAD CALLED" and error messages
 
+**Inline title edit behavior**: In `display/page.tsx`, only the clicked image enters edit mode (`editingImageId`), not all cards
+
 # Error Handling Instructions
 Please ensure that all potentially error-prone code uses try/catch blocks for error handling. If not, please add try/catch blocks for me.
 
@@ -120,3 +123,10 @@ If there is an image has been deleted, please make sure that the image has been 
 
 # Image Validation Instructions
 Please check every image that the users upload, if it's unsafe for the server, please prevent the upload and return an appropriate error message. You can use libraries like `file-type` to validate the file type and ensure it matches the expected image formats.
+
+# Database Schema Change Instructions
+When I modify the schema, please automatically check for changes:
+Explain the impact of this change on the database table structure.
+Check for any risk of data loss (e.g., deleting columns containing data).
+If everything is correct, please execute `npx prisma migrate dev --name <appropriate name>`.
+After execution, automatically run `npx prisma generate` to ensure the TS types are up-to-date.
