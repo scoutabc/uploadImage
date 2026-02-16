@@ -2,7 +2,8 @@ import { prisma } from '@/lib/prisma';
 import { writeFile,mkdir,unlink } from 'fs/promises';
 import fs from "fs"
 import path from 'path';
-import { fileTypeFromBuffer } from 'file-type';
+import { ActionResult } from '@/types/actionResult';
+import { validateImageMeta, validateImageSignature, validateTitle } from './images.validation';
 
 export async function getImages(){
     try {
@@ -11,11 +12,11 @@ export async function getImages(){
         });
     } catch (err) {
         console.error("Get Images Error:", err);
-        throw err;
+        return { ok:false,error: `Failed to fetch images: ${err}` };
     }
 }
 
-export async function uploadImage(formData: FormData):Promise<void | { error?:string }> {
+export async function uploadImage(formData: FormData):Promise<ActionResult> {
     try {
         const title = formData.get("title") as string
         const file = formData.get("image") as File
@@ -23,39 +24,27 @@ export async function uploadImage(formData: FormData):Promise<void | { error?:st
         console.log("UPLOAD CALLED");
         console.log("TITLE:", title);
         console.log("FILE:", file);
-        if(title.length > 255) {
-            console.error("Upload Error:","Title is too long!");
-            return { error:"Title is too long!" }
+        const titleValidation = validateTitle(title);
+        if (!titleValidation.ok) {
+            console.error("Upload Error:", titleValidation.error);
+            return { ok:false, error: titleValidation.error };
         }
-        if (title.trim() === "") {
-            console.error("Upload Error:","Title cannot be empty!");
-            return { error:"Title cannot be empty!" }
-        }
-        if (!title || !file || file.size === 0) {
-            console.error("Upload Error:","Missing title or image file!")
-            return { error:"Missing title or image file!" }
-        }
-
-        if (!file.type.startsWith('image/')) {
-            console.error("Upload Error:","The file is not an image");
-            return { error:"The file is not an image" }
-        }
-
-        if (file.size > 5000000) {
-            console.error("Upload Error:","The image is too large");
-            return { error:"The image is too large" }
+        const metaValidation = validateImageMeta(file);
+        if (!metaValidation.ok) {
+            console.error("Upload Error:", metaValidation.error);
+            return { ok:false, error: metaValidation.error };
         }
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
-
-        const detectedType = await fileTypeFromBuffer(buffer);
-        const allowedMimes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-        if (!detectedType || !allowedMimes.has(detectedType.mime)) {
-            console.error("Upload Error:", "Unsafe or unsupported image type");
-            return { error: "Unsafe or unsupported image type" };
+        const signatureValidation = await validateImageSignature(buffer);
+        if (!signatureValidation.ok) {
+            console.error("Upload Error:", signatureValidation.error);
+            return { ok:false, error: signatureValidation.error };
         }
-
-        const filename = `${Date.now()}-${crypto.randomUUID()}.${detectedType.ext}`
+        if (signatureValidation.data === undefined) {
+            return { ok:false, error: "Failed to validate image signature" };
+        }
+        const filename = `${Date.now()}-${crypto.randomUUID()}.${signatureValidation.data.extension}`
         const uploadDir = path.join(process.cwd(), "public/uploads");
 
         if (!fs.existsSync(uploadDir)) {
@@ -71,31 +60,32 @@ export async function uploadImage(formData: FormData):Promise<void | { error?:st
                 data:{
                     title,
                     filename,
-                    mimeType: detectedType.mime,
+                    mimeType: signatureValidation.data.mimeType,
                     size:file.size
                 }
             })
         } catch(err) {
             try {
                 await unlink(path.join(uploadDir, filename));
-            } catch {
-                // ignore cleanup failures
+            } catch (err) {
+                return { ok:false, error:`${err}` };
             }
-            return { error:`${err}` };
+            return { ok:false, error:`${err}` };
         }
+        return { ok:true }
     } catch (err) {
         console.error("Upload Error:", err)
-        return { error: `${err}` }
+        return { ok:false, error: `${err}` }
     }
 }
 
-export async function deleteImage(id:number) {
+export async function deleteImage(id:number):Promise<ActionResult> {
     try{
         const basicDir = path.join(process.cwd(), "public/uploads");
         const image = await prisma.images.findUnique({ where: { id } });
         if (!image) {
-            console.error("Delete Error:","The data isn't existing");
-            return { error:"Delete Error: The data isn't existing." };
+            console.error("Delete Error:","The DB data of this file isn't existing");
+            return { ok:false, error:"Delete Error: The DB data of this file isn't existing." };
         }
         const filePath = path.join(basicDir, image.filename);
         const fileExists = fs.existsSync(filePath);
@@ -110,19 +100,26 @@ export async function deleteImage(id:number) {
             try {
                 await unlink(filePath);
             } catch (err) {
-                console.error("Delete Error: failed to delete file", err);
+                console.error("Delete Error: failed to delete file, but DB record removed", err);
+                return { ok:false, error:`Failed to delete file, but DB record removed: ${err}` };
             }
         } else {
             console.warn("Delete Warning: file missing, DB record removed");
         }
+        return { ok:true };
     } catch(err) {
         console.error(err);
-        return { error:`${err}` }
+        return { ok:false, error:`${err}` }
     }
 }
 
-export async function updateImageTitle(id:number, newTitle:string) {
+export async function updateImageTitle(id:number, newTitle:string):Promise<ActionResult> {
     try {
+        const titleValidation = validateTitle(newTitle);
+        if (!titleValidation.ok) {
+            console.error("Update Error:", titleValidation.error);
+            return { ok:false, error: titleValidation.error };
+        }
         const count = await prisma.images.count({
             where: {
                 title: newTitle
@@ -130,19 +127,11 @@ export async function updateImageTitle(id:number, newTitle:string) {
         });
         if (count > 0) {
             console.error("Update Error: Title already exists");
-            return { error: "Update Error: Title already exists" };
-        }
-        if (newTitle.trim() === "") {
-            console.error("Update Error: Title cannot be empty");
-            return { error: "Update Error: Title cannot be empty" };
-        }
-        if (newTitle.length > 255) {
-            console.error("Update Error: Title is too long");
-            return { error: "Update Error: Title is too long" };
+            return { ok:false, error: "Update Error: Title already exists" };
         }
         if (newTitle === (await prisma.images.findUnique({ where: { id } }))?.title) {
             console.error("Update Error: New title is the same as the current title");
-            return { error: "Update Error: New title is the same as the current title" };
+            return { ok:false, error: "Update Error: New title is the same as the current title" };
         }
         await prisma.images.update({
             where:{
@@ -152,8 +141,9 @@ export async function updateImageTitle(id:number, newTitle:string) {
                 title:newTitle
             }
         });
+        return { ok:true }
     }catch(err) {
         console.error(err);
-        return { error:`Update Error:${err}` }
+        return { ok:false, error:`Update Error:${err}` }
     }
 }

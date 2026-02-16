@@ -58,7 +58,7 @@ export default function DisplayImage(){
                         )}
                         <Button 
                                 variant="secondary" 
-                                className="ml-2 inline bg-gray-300"
+                                className="ml-2 inline bg-gray-300 rounded-3xl"
                                 onClick={async function(){
                                     if (editingImageId !== img.id) {
                                         setEditingImageId(img.id);
@@ -67,9 +67,9 @@ export default function DisplayImage(){
                                     }
                                     try {
                                         const newTitle = editingTitle;
-                                        const result = await updateImageTitleAction(img.id, newTitle);
-                                        if (result?.error) {
-                                            alert(result.error);
+                                        const editingResult = await updateImageTitleAction(img.id, newTitle);
+                                        if (!editingResult.ok) {
+                                            alert(editingResult.error);
                                             return;
                                         }
                                         setImages((prev)=>
@@ -92,7 +92,7 @@ export default function DisplayImage(){
                         {editingImageId === img.id &&
                             <Button 
                                 variant="secondary"
-                                className="ml-2 inline bg-gray-300"
+                                className="ml-2 inline bg-red-300 rounded-3xl"
                                 onClick={()=>{
                                     setEditingImageId(null);
                                     setEditingTitle("");
@@ -109,12 +109,12 @@ export default function DisplayImage(){
                             onClick={async function(){
                                 try {
                                     const result = await deleteImageAction(img.id);
-                                    if (result?.error) {
+                                    if (!result.ok) {
                                         alert(result.error)
                                         return;
                                     }
                                     console.log("Delete Successful!")
-                                    setDeleted(deleted + 1);
+                                    setDeleted((prev)=> prev + 1);
                                 } catch (err) {
                                     console.error("Delete failed:", err);
                                     alert("Delete failed");
